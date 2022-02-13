@@ -1,3 +1,4 @@
+#include <Wire.h>
 #include "Nunchuk.h"
 
 using namespace communication;
