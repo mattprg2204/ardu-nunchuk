@@ -2,25 +2,36 @@
 #include "Nunchuk.h"
 
 using namespace communication;
-
-I2CBus bus{ Control::ADDR_NUNCHUK };
+Nunchuk dev{Control::ADDR_NUNCHUK};
 
 void setup() {
-  // Seriellen Monitor für Debug Initialisieren
-  Serial.begin(9600);
+  
+  // Pegelwandler initialisieren
+  pinMode(11, OUTPUT);
+  pinMode(10, OUTPUT);
+  digitalWrite(11, LOW);
+  digitalWrite(10, LOW);
+  Serial.println("Peripherie: Pegelwandler (Initialisierung erfolgreich)");
+  
+  dev.libinit();
 
-  // I2C-Bus Initialisieren
-  Wire.begin();
+  digitalWrite(11, HIGH);
+  Serial.println();
+  Serial.println("Peripherie: Pegelwandler (Aktiviert)");
 }
 
 void loop() {
-  // Falls Verbindung Verloren: erneut verbinden
-  if (!bus.isConnected())
-    bus.begin();
+
+  // ggf. Nunchuk initialisieren
+  dev.begin();
 
   // Messwerte auslesen
-  bus.read();
+  dev.read();
+  
+  // digitalWrite(11, LOW);
+  // Serial.println("Peripherie: Pegelwandler (Deaktiviert)");
+  // Serial.println();
 
-  // Ausgabe der Messwerte
-  // bus.getDevice().print();
+  // Messwerte auslesen
+  dev.print();
 }

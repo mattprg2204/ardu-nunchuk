@@ -173,7 +173,8 @@ namespace communication
  //   int16_t operator-(const int8_t left, const Acceleration right);
 
     /**
-     * @brief   Klasse Nunchuk speichert und verarbeitet die Sensorendaten eines Nunchuks.
+     * @brief   Klasse Nunchuk kommuniziert mit einem Nunchuk und verarbeitet und speichert die
+     *          empfangenen Sensorendaten.
      */
     class Nunchuk
     {
@@ -192,13 +193,41 @@ namespace communication
          *
          * @addr    I2C-Adresse des korrespondierenden Nunchuks
          */
-        Nunchuk(uint8_t addr);
+        explicit Nunchuk(uint8_t addr);
 
         // Getter und Setter
 
+        /*
+         * @brief   Getter für m_addr
+         */
         const uint8_t getAddress();
 
+        /**
+         * @brief   Getter für m_isConnected
+         */
+        bool isConnected();
+
         // Andere Methoden
+        
+        /*
+         * @brief   Initialisiert die erforderlichen Bibliotheken und Peripherie.
+         *          Sollte vor Nunchuk::begin() aufgerufen werden.
+         */
+        void libinit();
+
+        /**
+         * @brief   Initialisierungssequenz für den Nunchuk, um mit ihm kommunizieren zu können.
+         *
+         * @return  Exitcode der Methode
+         */
+        uint16_t begin();
+
+        /**
+         * @brief   Liest die aktuellen Sensorwerte vom Nunchuk über den I2C-Bus.
+         *
+         * @return  Exitcode der Mehtode
+         */
+        uint16_t read();
 
         /**
          * @brief   Extrahiert den Gedrücktstatus des Buttons Z aus dem zusammengesetzten Register
@@ -292,86 +321,29 @@ namespace communication
         // Beschleunigungswert in Y-Richtung
         int16_t m_accY;
 
-        // Beschleunigungswert in Z-Richtung
+        // Beschleunigungswert in Z-Richtung 
         int16_t m_accZ;
 
-        // Gedrücktstatus des C-Buttons
+        // Gedrücktstatus des C-Buttons [true = gedrückt]
         bool m_isButtonC;
 
-        // Gedrücktstatus des Z-Buttons
+        // Gedrücktstatus des Z-Buttons [true = gedrückt]
         bool m_isButtonZ;
-    };
 
-    /**
-     * @brief   Behandelt die Kommunikation mit dem Nunchuk über den I2C-Bus.
-     *          Nutzt dazu ein Objekt der Klasse Nunchuk, um die Daten zu formatieren und zu speichern.
-     */
-    class I2CBus
-    {
-    public:
+        // Initialisierungsstatus der Wire-Bibliothek [true = initialisiert]
+        static bool m_isWireInit;
 
-        /**
-         * @brief   Konstruktor der Klasse I2CBus.
-         *          Invalidiert m_device, setzt die Clockfrequenz auf 400 kHz, deklariert das Gerät als
-         *          nicht verbunden. Initialisert m_lastError mit ExitCodes::NO_ERROR.
-         */
-        I2CBus();
-
-        /**
-         * @brief   Konstruktor der Klasse I2CBus.
-         *          Initialisiert m_device mit addr, setzt die Clockfrequenz auf 400 kHz, deklariert
-         *          das Gerät als nicht verbunden. Initialisert m_lastError mit ExitCodes::NO_ERROR.
-         *
-         * @addr    I2C-Adresse des Geräts
-         */
-        I2CBus(uint8_t addr);
-
-        /**
-         * @brief   Konstruktor der Klasse I2CBus.
-         *          Initialisiert m_device mit addr, setzt die Clockfrequenz auf clock, deklariert
-         *          das Gerät als nicht verbunden. Initialisert m_lastError mit ExitCodes::NO_ERROR.
-         *
-         * @addr    I2C-Adresse des Geräts
-         * @clock   Clockfrequenz des I2C-Busses
-         */
-        I2CBus(uint8_t addr, uint32_t clock);
-
-        /**
-         * @brief   Getter für m_device
-         */
-        Nunchuk &getDevice();
-
-        /**
-         * @brief   Getter für m_isConnected
-         */
-        bool isConnected();
-
-        /**
-         * @brief   Initialisiert das Gerät, um mit ihm kommunizieren zu können.
-         *
-         * @return  Exitcode der Methode
-         */
-        uint16_t begin();
-
-        /**
-         * @brief   Liest due aktuellen Sensorwerte vom Gerät über den I2C-Bus.
-         *
-         * @return  Exitcode der Mehtode
-         */
-        uint16_t read();
-
-    private:
-        // korrespondierender Nunchuk
-        Nunchuk m_device;
+        // Initialisierungsstatus der Serial-Bibliothek [true = initialisiert]
+        static bool m_isSerialInit;
 
         // Taktfrequenz der I2C-Clock
         uint32_t m_clock;
 
-        // Verbundenheitsstatus des Geräts
-        bool m_isConnected;
-
         // Code des letzten Aufgetretenen Fehlers
         uint16_t m_lastError;
+
+        // Verbundenheitsstatus des Geräts
+        bool m_isConnected;
     };
 }
 #endif // !NUNCHUK_H
