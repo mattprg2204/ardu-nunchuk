@@ -266,7 +266,7 @@ namespace communication
         /**
          * @brief   Setter für m_clock
          */
-        bool setClock(uint32_t newfreq);
+        void setClock(uint32_t newfreq);
 
         // Andere Methoden
         
