@@ -36,6 +36,10 @@
 
 namespace communication
 {
+    /**************************
+     * Definitionen von enums *
+     **************************/
+
     // Exitcodes der Methoden
     struct ExitCodes
     {
@@ -47,16 +51,19 @@ namespace communication
             NO_ERROR = 0,
 
             // allgemeiner Fehler
-            ERROR_OCCURED = 1,
+            ERROR_OCCURED,
 
             // ungültiger Wert
-            BAD_VALUE = 2,
+            BAD_VALUE,
 
             // keine Verbindung zum Nunchuk möglich
-            NOT_CONNECTED = 3,
+            NOT_CONNECTED,
 
             // Datentyp nicht initialisiert
-            NOT_INITIALIZED = 4
+            NOT_INITIALIZED,
+
+            // keine Daten vorliegend
+            NO_DATA_AVAILABLE
         };
     };
 
@@ -168,19 +175,58 @@ namespace communication
         };
     };
 
+    /************************************
+     * Definitionen statischer Methoden *
+     ************************************/
+
  //   int8_t operator&(const int8_t left, const Bitmasks right);
  //
  //   int16_t operator-(const int8_t left, const Acceleration right);
 
-  void serialwrite(const char*, const char*);
+  /**
+   * @brief         Sendet eine formatierte Ausgabe an den Seriellen Monitor
+   * 
+   * @mode          Art der Ausgabe, siehe debugmode
+   * @annotation    Inhalt der Meldung
+   */
+  void serialwrite(const char *mode, const char *annotation);
 
-  void serialverbose(const char*);
+  /**
+   * @brief         Sendet eine formatierte erweitererte Information an den Seriellen Monitor
+   * 
+   * @annotation    Inhalt der Meldung
+   */
+  void serialverbose(const char *annotation);
 
-  void serialinfo(const char*);
+  /**
+   * @brief         Sendet eine formatierte informelle Benachrichtigung an den Seriellen Monitor
+   * 
+   * @annotation    Inhalt der Meldung
+   */
+  void serialinfo(const char *annotation);
 
-  void serialerror(const char*);
+  /**
+   * @brief         Sendet eine formatierte Fehlermeldung mit entsprechendem Fehlercode
+   *                an den Seriellen Monitor
+   * 
+   * @annotation    Inhalt der Meldung
+   * @code          Code des auslösenden Fehlers
+   */
+  void serialerror(const char *annotation, const uint16_t code);
 
-  uint8_t debugmode{3};
+    /*************************************
+     * Definitionen statischer Variablen *
+     *************************************/
+
+  // Ausgabemodus der Bibliothek
+  // >= 0   Fehlermedlungen werden ausgegeben
+  // > 0    informelle Benachrichtungen werden ausgegeben
+  // > 1    erweiterte Informationen (v. a. für Debugging) werden ausgegeben
+  constexpr const int8_t debugmode{0};
+
+    /******************************
+     * Definition der Hauptklasse *
+     ******************************/
 
     /**
      * @brief   Klasse Nunchuk kommuniziert mit einem Nunchuk und verarbeitet und speichert die
@@ -239,7 +285,7 @@ namespace communication
          */
         uint16_t read();
 
-        void decode(uint8_t data[6] = raw);
+        void decode(const uint8_t data[6]);
 
         /**
          * @brief   Extrahiert den Gedrücktstatus des Buttons Z aus dem zusammengesetzten Register
@@ -324,8 +370,6 @@ namespace communication
         // Initialisierungsstatus der Serial-Bibliothek [true = initialisiert]
         static bool m_isSerialInit;
 
-        static const volatile uint8_t **m_raw;
-
         // Adresse des korrespondierenden Nunchuks
         const uint8_t m_addr;
 
@@ -349,7 +393,6 @@ namespace communication
 
         // Gedrücktstatus des Z-Buttons [true = gedrückt]
         bool m_isButtonZ;
-
 
         // Taktfrequenz der I2C-Clock
         uint32_t m_clock;

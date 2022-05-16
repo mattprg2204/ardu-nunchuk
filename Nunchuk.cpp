@@ -35,14 +35,9 @@
 #include "Nunchuk.h"
 
 #include <Wire.h>
-#include <stdio.h>
 
 namespace communication
 {
-
-// Speicher für Rohdaten vom Nunchuk
-static uint8_t raw[Control::LEN_RAW_DATA]{ 0x00 };
-
 void serialwrite(const char* mode = nullptr, const char* annotation = nullptr)
 {
   if (!mode || !annotation)
@@ -50,42 +45,45 @@ void serialwrite(const char* mode = nullptr, const char* annotation = nullptr)
 
   Serial.print("(");
   Serial.print(mode);
-  Serial.print("): ");
+  Serial.print(") ");
   Serial.println(annotation);
 }
 
 void serialverbose(const char* annotation = nullptr)
 {
-  if (debugmode > 2)
-    return;
-  
+  if constexpr (debugmode > 1)
+  {
   if (!annotation)
     return;
 
   serialwrite("verbose", annotation);
+  }
 }
 
 void serialinfo(const char* annotation = nullptr)
 {
-  if (debugmode > 1)
-    return;
-
+  if constexpr (debugmode > 0)
+  {
   if (!annotation)
     return;
 
   serialwrite("info", annotation);
+  }
 }
 
-void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
+void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
 {
-  if (debugmode > 0)
-    return;
-
+  if constexpr (debugmode >= 0)
+  {
   if (!annotation)
     return;
 
-  const char* str = printf("%s (Code: %X#)", annotation, code);
-  serialwrite("error", str);
+  static const char buffer[270] = {0x00};
+  static_assert(sizeof(annotation) <= 255, "Annotation zu lang. Maximal 255 Zeichen zulässig.");
+
+  sprintf(buffer, "%s (Code: %X#02)", annotation, code);
+  serialwrite("error", buffer);
+  }
 }
 
   bool Nunchuk::m_isSerialInit;
@@ -107,8 +105,7 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
         m_addr{ addr },
         m_clock{ BusControl::I2C_CLOCK_STANDARD_100_kHz },
         m_isConnected{ false },
-        m_lastError{ ExitCodes::NO_ERROR },
-        m_raw{&raw};
+        m_lastError{ ExitCodes::NO_ERROR }
     {
     }
 
@@ -128,14 +125,14 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
         {
             Serial.begin(115200);
             m_isSerialInit = true;
-            Serial.println("Bibliothek: Serial (Initialisierung erfolgreich)");
+            serialinfo("Serial-Bibliothek erfolgreich initialisiert.");
         }
         if (!m_isWireInit)
         {
             Wire.begin();
             Wire.setClock(m_clock);
             m_isWireInit = true;
-            Serial.println("Bibliothek: Wire (Initialisierung erfolgreich)");
+            serialinfo("Wire-Bibliothek erfolgreich initialisiert.");
         }
     }
 
@@ -144,7 +141,7 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
         if (!m_isSerialInit || !m_isWireInit)
             libinit();
 
-        Serial.println("Gerät: Nunchuk (Initialisierung gestartet)");
+        serialverbose("Nunchuk-Initialisierung gestartet.");
         delay(1);
 
         Wire.beginTransmission(m_addr);
@@ -166,14 +163,13 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
         {
             // Fehlerbehandlung falls nicht auf den Bus geschrieben werden kann
             m_isConnected = false;
-            Serial.print("Gerät: Nunchuk (Initialisierung fehlgeschlagen) Exitcode: 0x");
-            Serial.println(ExitCodes::NOT_CONNECTED, HEX);
+            serialerror("Nunchukinitialisierung fehlgeschlagen.", ExitCodes::NOT_CONNECTED);
             return m_lastError = ExitCodes::NOT_CONNECTED;
         }
         else
         {
             m_isConnected = true;
-            Serial.println("Gerät: Nunchuk (Initialisierung erfolgreich)");
+            serialinfo("Nunchuk-Initalisierung erfolgreich.");
         }
 
         return ExitCodes::NO_ERROR;
@@ -181,26 +177,27 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
 
     uint16_t Nunchuk::read()
     {
+        const char formatbuffer[100]{0x00};
         // Falls das Gerät nicht verbunden/initialisiert ist zweimal versuchen, sonst mit Fehler
         // zurückkehren
         for (int i = 0; i < 2; i++)
         {
             if (m_isConnected)
             {
-              Serial.println("Verbose: Nunchuk bereit zur Kommunikation");            
+              serialinfo("Nunchuk bereit zur Kommunikation");            
               break;
             }
             else
             {
-                Serial.println("Gerät: Nunchuk (Nicht verbunden)");
+                sprintf(formatbuffer, "Verbindungsaufbau fehlgeschlagen. Versuch %i1/3", i+1);
+                serialinfo(formatbuffer);
                 begin();
             }
         }
 
         if (!m_isConnected)
         {
-            Serial.print("Gerät: Nunchuk (Nicht verbunden) Exitcode: 0x");
-            Serial.println(ExitCodes::NOT_CONNECTED, HEX);
+            serialerror("Verbindungsaufbau fehlgeschlagen. Versuch 3/3.", ExitCodes::NOT_CONNECTED);
             return m_lastError = ExitCodes::NOT_CONNECTED;
         }
 
@@ -212,20 +209,17 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
             // falls Fehler bei der Kommunikation, das Gerät als getrennt markieren und mit
             // Fehler zurückkehren
             m_isConnected = false;
-            Serial.print("Gerät: Nunchuk (Übertragungsfehler) Exitcode: 0x");
-            Serial.println(ExitCodes::NOT_CONNECTED, HEX);
+            serialerror("Übertragung fehlgeschlagen.", ExitCodes::NOT_CONNECTED);
             return m_lastError = ExitCodes::NOT_CONNECTED;
         }
 
         // Array mit den Rohdaten, die vom Gerät kommen
-        for (auto &r : raw)
-          r = 0x00;
-
+        volatile uint8_t raw[Control::LEN_RAW_DATA] {0x00};
         static uint16_t i = 0;
 
-        Serial.print("Debug: Number of byte available: ");
-        Serial.println(Wire.available(), DEC);
-        
+        sprintf(formatbuffer, "Anzahl der verfügbaren Bytes: %i", Wire.available());
+        serialverbose(formatbuffer);
+
         // empfangene Daten auslesen
         for (i = 0; (i < Control::LEN_RAW_DATA) && Wire.available(); i++)
             raw[i] = Wire.read();
@@ -234,29 +228,37 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
         Wire.write(Control::REG_RAW_DATA);
         Wire.endTransmission(true);
 
-        Serial.println("Rohdaten");
-        for (int i = 0; i < Control::LEN_RAW_DATA; i++)
+        serialinfo("Rohdaten:");
+        if (debugmode > 0)
         {
-          Serial.print(raw[i], HEX);
-          Serial.print(" ");
+          for (int i = 0; i < Control::LEN_RAW_DATA; i++)
+          {
+            Serial.print(raw[i], HEX);
+            Serial.print(" ");
+          }
+          Serial.println();
         }
-        Serial.println();
+
+        decode(raw);
 
         return ExitCodes::NO_ERROR;
     }
 
-    void Nunchuk::decode(uint8_t data[6] = this->m_raw)
+    void Nunchuk::decode(const uint8_t data[6] = nullptr)
     {
+      if (!data)
+        return;
+
       // Daten formatieren und in Klasse Nunchuk speichern
-        decodeJoystickX(data[0]);
-        decodeJoystickY(data[1]);
+      decodeJoystickX(data[0]);
+      decodeJoystickY(data[1]);
 
-        decodeAccelerationX(data[2], data[5]);
-        decodeAccelerationY(data[3], data[5]);
-        decodeAccelerationZ(data[4], data[5]);
+      decodeAccelerationX(data[2], data[5]);
+      decodeAccelerationY(data[3], data[5]);
+      decodeAccelerationZ(data[4], data[5]);
 
-        decodeButtonZ(data[5]);
-        decodeButtonC(data[5]);
+      decodeButtonZ(data[5]);
+      decodeButtonC(data[5]);
     }
 
     const bool Nunchuk::decodeButtonZ(const int8_t x)
@@ -301,7 +303,8 @@ void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
     {
       if (!m_isConnected)
       {
-        Serial.println("Error: Keine Daten verfügbar");
+        serialerror("Es liegen keine neuen Sensorendaten vor.", ExitCodes::NO_DATA_AVAILABLE);
+        m_lastError = ExitCodes::NO_DATA_AVAILABLE;
         return;
       }
       

@@ -7,20 +7,6 @@ Nunchuk dev{Control::ADDR_NUNCHUK};
 constexpr const uint8_t PIN_LVLSHFT_DI2C{10};
 constexpr const uint8_t PIN_LVLSHFT_NUNCHUK{11};
 
-struct State
-{
-  using T = uint8;
-
-  enum local : T
-  {
-    LESEND,
-    DECODIEREND,
-
-  }
-};
-
-uint8_t state {static_cast<uint8_t>(State::START)};
-
 void setup()
 {
   // Pegelwandler initialisieren
@@ -30,7 +16,7 @@ void setup()
   digitalWrite(PIN_LVLSHFT_DI2C, LOW);
   
   dev.libinit();
-  serialdebug("Pegelwandler erfolgreich initialisiert (Nunchuk aktiv, DI2C inaktiv)");
+  serialinfo("Nunchuk-Pegelwandler aktiviert. DI2C-Pegelwandler deaktiviert.");
 
   // Nunchuk initialisieren
   dev.begin();
@@ -38,22 +24,16 @@ void setup()
 
 void loop()
 {
+  Serial.println();
+  digitalWrite(PIN_LVLSHFT_NUNCHUK, HIGH);
+  serialinfo("Pegelwandler aktiviert.");
+
   // Messwerte auslesen
-  switch(state)
-  {
-    case static_cast<uint8_t>(State::LESEND):
-      dev.read();
-      state = static_cast<uint8_t>(State::DECODIEREND);
-      break;
-    case static_cast<uint8_t>(State::DECODIEREND):
-      dev.decode();
-      break;      
-  }
-  
-  digitalWrite(11, LOW);
-  Serial.println("Peripherie: Pegelwandler (Deaktiviert)");
+  dev.read();
+
+  digitalWrite(PIN_LVLSHFT_NUNCHUK, LOW);
+  serialinfo("Pegelwandler deaktiviert.");
 
   // Messwerte auslesen
   dev.print();
-  Serial.println();
 }
