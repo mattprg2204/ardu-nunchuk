@@ -119,6 +119,11 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
         return m_isConnected;
     }
 
+    bool Nunchuk::setClock(uint32_t newfreq)
+    {
+      m_clock = newfreq;
+    }
+
     void Nunchuk::libinit()
     {
         if (!m_isSerialInit)

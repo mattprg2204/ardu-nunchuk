@@ -17,6 +17,8 @@ void setup()
   
   dev.libinit();
   serialinfo("Nunchuk-Pegelwandler aktiviert. DI2C-Pegelwandler deaktiviert.");
+  dev.setClock(BusControl::I2C_CLOCK_FAST_400_kHz);
+  serialinfo("I2C-Clock Takt auf 400kHz gesetzt.");
 
   // Nunchuk initialisieren
   dev.begin();
