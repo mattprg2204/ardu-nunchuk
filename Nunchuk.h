@@ -172,6 +172,16 @@ namespace communication
  //
  //   int16_t operator-(const int8_t left, const Acceleration right);
 
+  void serialwrite(const char*, const char*);
+
+  void serialverbose(const char*);
+
+  void serialinfo(const char*);
+
+  void serialerror(const char*);
+
+  uint8_t debugmode{3};
+
     /**
      * @brief   Klasse Nunchuk kommuniziert mit einem Nunchuk und verarbeitet und speichert die
      *          empfangenen Sensorendaten.
@@ -228,6 +238,8 @@ namespace communication
          * @return  Exitcode der Mehtode
          */
         uint16_t read();
+
+        void decode(uint8_t data[6] = raw);
 
         /**
          * @brief   Extrahiert den Gedrücktstatus des Buttons Z aus dem zusammengesetzten Register
@@ -306,6 +318,14 @@ namespace communication
         void print();
 
     private:
+        // Initialisierungsstatus der Wire-Bibliothek [true = initialisiert]
+        static bool m_isWireInit;
+
+        // Initialisierungsstatus der Serial-Bibliothek [true = initialisiert]
+        static bool m_isSerialInit;
+
+        static const volatile uint8_t **m_raw;
+
         // Adresse des korrespondierenden Nunchuks
         const uint8_t m_addr;
 
@@ -330,11 +350,6 @@ namespace communication
         // Gedrücktstatus des Z-Buttons [true = gedrückt]
         bool m_isButtonZ;
 
-        // Initialisierungsstatus der Wire-Bibliothek [true = initialisiert]
-        static bool m_isWireInit;
-
-        // Initialisierungsstatus der Serial-Bibliothek [true = initialisiert]
-        static bool m_isSerialInit;
 
         // Taktfrequenz der I2C-Clock
         uint32_t m_clock;

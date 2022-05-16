@@ -1,3 +1,5 @@
+#include <Wire.h>
+
 /**
  * Copyright (c) 2022, Mattheo Krümmel
  * SPDX-License-Identifier: LGPL-3.0-or-later
@@ -33,10 +35,59 @@
 #include "Nunchuk.h"
 
 #include <Wire.h>
+#include <stdio.h>
 
 namespace communication
 {
+
+// Speicher für Rohdaten vom Nunchuk
+static uint8_t raw[Control::LEN_RAW_DATA]{ 0x00 };
+
+void serialwrite(const char* mode = nullptr, const char* annotation = nullptr)
+{
+  if (!mode || !annotation)
+    return;
+
+  Serial.print("(");
+  Serial.print(mode);
+  Serial.print("): ");
+  Serial.println(annotation);
+}
+
+void serialverbose(const char* annotation = nullptr)
+{
+  if (debugmode > 2)
+    return;
   
+  if (!annotation)
+    return;
+
+  serialwrite("verbose", annotation);
+}
+
+void serialinfo(const char* annotation = nullptr)
+{
+  if (debugmode > 1)
+    return;
+
+  if (!annotation)
+    return;
+
+  serialwrite("info", annotation);
+}
+
+void serialerror(const char* annotation = nullptr, const uint8_t code = 0x00)
+{
+  if (debugmode > 0)
+    return;
+
+  if (!annotation)
+    return;
+
+  const char* str = printf("%s (Code: %X#)", annotation, code);
+  serialwrite("error", str);
+}
+
   bool Nunchuk::m_isSerialInit;
   bool Nunchuk::m_isWireInit;
 
@@ -56,7 +107,8 @@ namespace communication
         m_addr{ addr },
         m_clock{ BusControl::I2C_CLOCK_STANDARD_100_kHz },
         m_isConnected{ false },
-        m_lastError{ ExitCodes::NO_ERROR }
+        m_lastError{ ExitCodes::NO_ERROR },
+        m_raw{&raw};
     {
     }
 
@@ -100,7 +152,7 @@ namespace communication
         Wire.write((uint8_t) 0xF0);
         // auf ersten Initialisierungswert setzen
         Wire.write((uint8_t) 0x55);
-        Wire.endTransmission();
+        Wire.endTransmission(true);
 
         delay(1);
 
@@ -110,7 +162,7 @@ namespace communication
         // auf zweiten Initialisierungswert setzen
         Wire.write((uint8_t) 0x00);
 
-        if (Wire.endTransmission())
+        if (Wire.endTransmission(true))
         {
             // Fehlerbehandlung falls nicht auf den Bus geschrieben werden kann
             m_isConnected = false;
@@ -121,7 +173,7 @@ namespace communication
         else
         {
             m_isConnected = true;
-            Serial.print("Gerät: Nunchuk (Initialisierung erfolgreich)");
+            Serial.println("Gerät: Nunchuk (Initialisierung erfolgreich)");
         }
 
         return ExitCodes::NO_ERROR;
@@ -134,7 +186,10 @@ namespace communication
         for (int i = 0; i < 2; i++)
         {
             if (m_isConnected)
-                break;
+            {
+              Serial.println("Verbose: Nunchuk bereit zur Kommunikation");            
+              break;
+            }
             else
             {
                 Serial.println("Gerät: Nunchuk (Nicht verbunden)");
@@ -150,29 +205,33 @@ namespace communication
         }
 
         // Rohdaten vom Gerät anfordern
+        delayMicroseconds(1);
+
         if (!Wire.requestFrom(m_addr, static_cast<uint8_t>(Control::LEN_RAW_DATA)))
         {
             // falls Fehler bei der Kommunikation, das Gerät als getrennt markieren und mit
             // Fehler zurückkehren
             m_isConnected = false;
-            Serial.print("Gerät: Nunchuk (Nicht verbunden) Exitcode: 0x");
+            Serial.print("Gerät: Nunchuk (Übertragungsfehler) Exitcode: 0x");
             Serial.println(ExitCodes::NOT_CONNECTED, HEX);
             return m_lastError = ExitCodes::NOT_CONNECTED;
         }
 
         // Array mit den Rohdaten, die vom Gerät kommen
-        static uint8_t raw[Control::LEN_RAW_DATA]{ 0x00 };
+        for (auto &r : raw)
+          r = 0x00;
+
         static uint16_t i = 0;
 
-        delayMicroseconds(10);
-
+        Serial.print("Debug: Number of byte available: ");
+        Serial.println(Wire.available(), DEC);
+        
         // empfangene Daten auslesen
         for (i = 0; (i < Control::LEN_RAW_DATA) && Wire.available(); i++)
             raw[i] = Wire.read();
-
+        
         Wire.beginTransmission(m_addr);
         Wire.write(Control::REG_RAW_DATA);
-        delayMicroseconds(50);
         Wire.endTransmission(true);
 
         Serial.println("Rohdaten");
@@ -181,19 +240,23 @@ namespace communication
           Serial.print(raw[i], HEX);
           Serial.print(" ");
         }
-        
-        // Daten formatieren und in Klasse Nunchuk speichern
-        decodeJoystickX(raw[0]);
-        decodeJoystickY(raw[1]);
-
-        decodeAccelerationX(raw[2], raw[5]);
-        decodeAccelerationY(raw[3], raw[5]);
-        decodeAccelerationZ(raw[4], raw[5]);
-
-        decodeButtonZ(raw[5]);
-        decodeButtonC(raw[5]);
+        Serial.println();
 
         return ExitCodes::NO_ERROR;
+    }
+
+    void Nunchuk::decode(uint8_t data[6] = this->m_raw)
+    {
+      // Daten formatieren und in Klasse Nunchuk speichern
+        decodeJoystickX(data[0]);
+        decodeJoystickY(data[1]);
+
+        decodeAccelerationX(data[2], data[5]);
+        decodeAccelerationY(data[3], data[5]);
+        decodeAccelerationZ(data[4], data[5]);
+
+        decodeButtonZ(data[5]);
+        decodeButtonC(data[5]);
     }
 
     const bool Nunchuk::decodeButtonZ(const int8_t x)
