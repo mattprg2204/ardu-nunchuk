@@ -1,3 +1,6 @@
+#include <G110.h>
+#include <USS.h>
+
 #include <Wire.h>
 #include "Nunchuk.h"
 
