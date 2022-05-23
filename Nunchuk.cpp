@@ -1,5 +1,3 @@
-#include <Wire.h>
-
 /**
  * Copyright (c) 2022, Mattheo Krümmel
  * SPDX-License-Identifier: LGPL-3.0-or-later
@@ -86,8 +84,8 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
   }
 }
 
-  bool Nunchuk::m_isSerialInit;
-  bool Nunchuk::m_isWireInit;
+  bool Nunchuk::m_isSerialInit {false};
+  bool Nunchuk::m_isWireInit{false};
 
 	Nunchuk::Nunchuk()
         : Nunchuk(static_cast<uint8_t>(0x00))
@@ -95,15 +93,8 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
     }
 
     Nunchuk::Nunchuk(uint8_t addr)
-        : m_isButtonC{ false },
-        m_isButtonZ{ false },
-        m_accX{ Acceleration::X_NULL },
-        m_accY{ Acceleration::Y_NULL },
-        m_accZ{ Acceleration::Z_NULL},
-        m_jsPosX{ Joystick::X_NULL },
-        m_jsPosY{ Joystick::Y_NULL },
-        m_addr{ addr },
-        m_clock{ BusControl::I2C_CLOCK_STANDARD_100_kHz },
+        : m_clock{ BusControl::I2C_CLOCK_STANDARD_100_kHz },
+        m_raw { 0x00 },
         m_isConnected{ false },
         m_lastError{ ExitCodes::NO_ERROR }
     {
@@ -126,13 +117,13 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
 
     void Nunchuk::libinit()
     {
-        if (!m_isSerialInit)
+        if (!Nunchuk::m_isSerialInit)
         {
             Serial.begin(115200);
             m_isSerialInit = true;
             serialinfo("Serial-Bibliothek erfolgreich initialisiert.");
         }
-        if (!m_isWireInit)
+        if (!Nunchuk::m_isWireInit)
         {
             Wire.begin();
             Wire.setClock(m_clock);
@@ -143,7 +134,7 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
 
     uint16_t Nunchuk::begin()
     {
-        if (!m_isSerialInit || !m_isWireInit)
+        if (!Nunchuk::m_isSerialInit || !Nunchuk::m_isWireInit)
             libinit();
 
         serialverbose("Nunchuk-Initialisierung gestartet.");
@@ -218,8 +209,6 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
             return m_lastError = ExitCodes::NOT_CONNECTED;
         }
 
-        // Array mit den Rohdaten, die vom Gerät kommen
-        volatile uint8_t raw[Control::LEN_RAW_DATA] {0x00};
         static uint16_t i = 0;
 
         sprintf(formatbuffer, "Anzahl der verfügbaren Bytes: %i", Wire.available());
@@ -227,7 +216,7 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
 
         // empfangene Daten auslesen
         for (i = 0; (i < Control::LEN_RAW_DATA) && Wire.available(); i++)
-            raw[i] = Wire.read();
+            m_raw[i] = Wire.read();
         
         Wire.beginTransmission(m_addr);
         Wire.write(Control::REG_RAW_DATA);
@@ -238,73 +227,54 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
         {
           for (int i = 0; i < Control::LEN_RAW_DATA; i++)
           {
-            Serial.print(raw[i], HEX);
+            Serial.print(m_raw[i], HEX);
             Serial.print(" ");
           }
           Serial.println();
         }
 
-        decode(raw);
-
         return ExitCodes::NO_ERROR;
     }
 
-    void Nunchuk::decode(const uint8_t data[6] = nullptr)
+    const bool Nunchuk::decodeButtonZ() const
     {
-      if (!data)
-        return;
-
-      // Daten formatieren und in Klasse Nunchuk speichern
-      decodeJoystickX(data[0]);
-      decodeJoystickY(data[1]);
-
-      decodeAccelerationX(data[2], data[5]);
-      decodeAccelerationY(data[3], data[5]);
-      decodeAccelerationZ(data[4], data[5]);
-
-      decodeButtonZ(data[5]);
-      decodeButtonC(data[5]);
+        return static_cast<bool>(!((m_raw[5] & Bitmasks::BUTTON_Z_STATE) >> 0));
     }
 
-    const bool Nunchuk::decodeButtonZ(const int8_t x)
+    const bool Nunchuk::decodeButtonC() const
     {
-        return m_isButtonZ = static_cast<bool>(!((x & Bitmasks::BUTTON_Z_STATE) >> 0));
+        return static_cast<bool>(!((m_raw[5] & Bitmasks::BUTTON_C_STATE) >> 1));
     }
 
-    const bool Nunchuk::decodeButtonC(const int8_t x)
+    const int16_t Nunchuk::decodeAccelerationX() const
     {
-        return m_isButtonC = static_cast<bool>(!((x & Bitmasks::BUTTON_C_STATE) >> 1));
-    }
-
-    const int16_t Nunchuk::decodeAccelerationX(const uint16_t x, const uint8_t reg)
-    {
-        return m_accX = static_cast<int16_t>((x << 2) | (static_cast<uint16_t>((reg & Bitmasks::ACC_X_BIT_0_1) >> 2))
+        return static_cast<int16_t>((m_raw[2] << 2) | (static_cast<uint16_t>((m_raw[5] & Bitmasks::ACC_X_BIT_0_1) >> 2))
             - Acceleration::X_NULL);
     }
 
-    const int16_t Nunchuk::decodeAccelerationY(const uint16_t x, const uint8_t reg)
+    const int16_t Nunchuk::decodeAccelerationY() const
     {
-        return m_accY = static_cast<int16_t>((x << 2) | (static_cast<uint16_t>((reg & Bitmasks::ACC_Y_BIT_0_1) >> 4))
+        return static_cast<int16_t>((m_raw[3] << 2) | (static_cast<uint16_t>((m_raw[5] & Bitmasks::ACC_Y_BIT_0_1) >> 4))
             - Acceleration::Y_NULL);
     }
 
-    const int16_t Nunchuk::decodeAccelerationZ(const uint16_t x, const uint8_t reg)
+    const int16_t Nunchuk::decodeAccelerationZ() const
     {
-        return m_accZ = static_cast<int16_t>((x << 2) | (static_cast<uint16_t>((reg & Bitmasks::ACC_Z_BIT_0_1) >> 6))
+        return static_cast<int16_t>((m_raw[4] << 2) | (static_cast<uint16_t>((m_raw[5] & Bitmasks::ACC_Z_BIT_0_1) >> 6))
             - Acceleration::Z_NULL);
     }
 
-    const int8_t Nunchuk::decodeJoystickX(const uint8_t x)
+    const int8_t Nunchuk::decodeJoystickX() const
     {
-        return m_jsPosX = x - Joystick::X_NULL;
+        return m_raw[0] - Joystick::X_NULL;
     }
 
-    const int8_t Nunchuk::decodeJoystickY(const uint8_t x)
+    const int8_t Nunchuk::decodeJoystickY() const
     {
-        return m_jsPosY = x - Joystick::Y_NULL;
+        return m_raw[1] - Joystick::Y_NULL;
     }
 
-    void Nunchuk::print()
+/*    void Nunchuk::print()
     {
       if (!m_isConnected)
       {
@@ -333,4 +303,5 @@ void serialerror(const char* annotation = nullptr, const uint16_t code = 0x00)
       Serial.print(m_isButtonZ ? "gedrückt" : "nicht gedrückt");
       Serial.println();
     }
+    */
 }

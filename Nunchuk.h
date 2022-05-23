@@ -290,83 +290,57 @@ namespace communication
          */
         uint16_t read();
 
-        void decode(const uint8_t data[6]);
-
         /**
-         * @brief   Extrahiert den Gedrücktstatus des Buttons Z aus dem zusammengesetzten Register
-         *          und speichert ihn in m_isButtonZ.
+         * @brief   Extrahiert den Gedrücktstatus des Buttons Z aus dem zusammengesetzten Register.
          *
-         * @x       Wert des Registers mit den zusammengesetzten Werten
          * @return  Gedrücktstatus des Buttons Z [false = released/true = pressed]
          */
-        const bool decodeButtonZ(const int8_t x);
+        const bool decodeButtonZ() const;
 
         /**
-         * @brief   Extrahiert den Gedrücktstatus des Buttons C aus dem zusammengesetzten Register
-         *          und speichert ihn in m_isButtonC.
+         * @brief   Extrahiert den Gedrücktstatus des Buttons C aus dem zusammengesetzten Register.
          *
-         * @x       Wert des Registers mit den zusammengesetzten Werten
          * @return  Gedrücktstatus des Buttons C [false = released/true = pressed]
          */
-        const bool decodeButtonC(const int8_t x);
+        const bool decodeButtonC() const;
 
         /**
          * @brief   Extrahiert die Bits [0:1] des Beschleunigungswerts in X-Richtung aus dem
-         *          zusammengesetzten Register, setzt sie mit den Bits [2:10] zusammen und
-         *          speichert ihn in m_accX.
-         *
-         * @x       Wert des Registers mit den Bits [2:9]
-         * @reg     Wert des Registers mit den zusammengesetzten Werten
+         *          zusammengesetzten Register, setzt sie mit den Bits [2:1] zusammen.
+         * 
          * @return  Beschleunigungswert in X-Richtung (-512;512]
          */
-        const int16_t decodeAccelerationX(const uint16_t x, const uint8_t reg);
+        const int16_t decodeAccelerationX() const;
 
         /**
          * @brief   Extrahiert die Bits [0:1] des Beschleunigungswerts in Y-Richtung aus dem
-         *          zusammengesetzten Register, setzt sie mit den Bits [2:10] zusammen und
-         *          speichert ihn in m_accY.
-         *
-         * @x       Wert des Registers mit den Bits [2:9]
-         * @reg     Wert des Registers mit den zusammengesetzten Werten
+         *          zusammengesetzten Register, setzt sie mit den Bits [2:10] zusammen.
+         * 
          * @return  Beschleunigungswert in Y-Richtung (-512;512]
          */
-        const int16_t decodeAccelerationY(const uint16_t x, const uint8_t reg);
+        const int16_t decodeAccelerationY() const;
 
         /**
          * @brief   Extrahiert die Bits [0:1] des Beschleunigungswerts in Z-Richtung aus dem
-         *          zusammengesetzten Register, setzt sie mit den Bits [2:10] zusammen und
-         *          speichert ihn in m_accZ.
-         *
-         * @x       Wert des Registers mit den Bits [2:9]
-         * @reg     Wert des Registers mit den zusammengesetzten Werten
+         *          zusammengesetzten Register, setzt sie mit den Bits [2:10] zusammen.
+         * 
          * @return  Beschleunigungswert in Z-Richtung (-512;512]
          */
-        const int16_t decodeAccelerationZ(const uint16_t x, const uint8_t reg);
+        const int16_t decodeAccelerationZ() const;
 
         /**
-         * @brief   Subtrahiert den Mittenwert vom Registerwert für die Position in X-Richtung
-         *          und speichert ihn in m_jsPosX.
-         *
-         * @x       Wert des Registers mit dem Positionswert
+         * @brief   Subtrahiert den Mittenwert vom Registerwert für die Position in X-Richtung.
+         *          
          * @return  Position relativ zur Mitte in X-Richtung (-125;130]
          */
-        const int8_t decodeJoystickX(const uint8_t x);
+        const int8_t decodeJoystickX() const;
 
         /**
-         * @brief   Subtrahiert den Mittenwert vom Registerwert für die Position in Y-Richtung
-         *          und speichert ihn in m_jsPosY.
-         *
-         * @x       Wert des Registers mit dem Positionswert
+         * @brief   Subtrahiert den Mittenwert vom Registerwert für die Position in Y-Richtung.
+         *          
          * @return  Position relativ zur Mitte in Y-Richtung (-126;129]
          */
-        const int8_t decodeJoystickY(const uint8_t x);
-
-        /**
-         * @brief   Gibt die Daten in Textform über die Serielle Schnittstelle aus.
-         *
-         * @return  Exitcode der Methode
-         */
-        void print();
+        const int8_t decodeJoystickY() const;
 
     private:
         // Initialisierungsstatus der Wire-Bibliothek [true = initialisiert]
@@ -375,29 +349,11 @@ namespace communication
         // Initialisierungsstatus der Serial-Bibliothek [true = initialisiert]
         static bool m_isSerialInit;
 
+        // Rohdaten vom Nunchuk
+        uint8_t m_raw[Control::LEN_RAW_DATA];
+
         // Adresse des korrespondierenden Nunchuks
-        const uint8_t m_addr;
-
-        // Position des Joysticks in X-Richtung relativ zur Mitte
-        int8_t m_jsPosX;
-
-        // Position des Joysticks in Y-Richtung relativ zur Mitte
-        int8_t m_jsPosY;
-
-        // Beschleunigungswert in X-Richtung
-        int16_t m_accX;
-
-        // Beschleunigungswert in Y-Richtung
-        int16_t m_accY;
-
-        // Beschleunigungswert in Z-Richtung 
-        int16_t m_accZ;
-
-        // Gedrücktstatus des C-Buttons [true = gedrückt]
-        bool m_isButtonC;
-
-        // Gedrücktstatus des Z-Buttons [true = gedrückt]
-        bool m_isButtonZ;
+        uint8_t m_addr;
 
         // Taktfrequenz der I2C-Clock
         uint32_t m_clock;
